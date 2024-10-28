@@ -1,240 +1,165 @@
 import mysql.connector
 import uuid
-con=mysql.connector.connect(host="localhost",user="root",password="kevlar0725",db="x4")
-if con.is_connected():
-    print("Connceted")
-else:
-    print("Unable to connect")
-cur=con.cursor()
-cur.execute("create table if not exists costumer(costumer_id varchar(70) primary key,name varchar(30),E_Mail varchar(30),mobile varchar(10),address varchar(50));")
-con.commit()
-def check(A,M,w):
-    try:
-        cur.execute("create table if not exists main(company varchar(10), model varchar(10) ,colour varchar(10), storage varchar(3), screen_size varchar(50),price varchar(50), quantity varchar(10));")
-        cur.execute("select*from main where model={} and colour={} and storage={};".format(A,M,w))
-        info=cur.fetchall()
-        if info==[]:
+
+class DatabaseManager:
+    def __init__(self, host, user, password, db):
+        self.con = mysql.connector.connect(host=host, user=user, password=password, database=db)
+        if self.con.is_connected():
+            print("Connected")
+        else:
+            print("Unable to connect")
+        self.cur = self.con.cursor()
+        self.create_tables()
+
+    def create_tables(self):
+        # Create necessary tables
+        self.cur.execute("CREATE TABLE IF NOT EXISTS costumer(costumer_id VARCHAR(70) PRIMARY KEY, name VARCHAR(30), E_Mail VARCHAR(30), mobile VARCHAR(10), address VARCHAR(50));")
+        self.cur.execute("CREATE TABLE IF NOT EXISTS main(company VARCHAR(10), model VARCHAR(10), colour VARCHAR(10), storage VARCHAR(3), screen_size VARCHAR(50), price VARCHAR(50), quantity VARCHAR(10));")
+        self.con.commit()
+
+    def check_product(self, model, colour, storage):
+        try:
+            self.cur.execute("SELECT * FROM main WHERE model=%s AND colour=%s AND storage=%s;", (model, colour, storage))
+            return bool(self.cur.fetchall())
+        except Exception as e:
+            print("Error ", e)
             return False
-        else:
-            return True
-    except Exception as e:
-        print("Error ", e)
-def check2(s):
-    try:
-        cur.execute("create table if not exists costumer(costumer_id varchar(70) primary key,name varchar(30),E_Mail varchar(30),mobile int(10),address varchar(50));")
-        cur.execute("select*from costumer where costumer_id={} ;".format(s))
-        info=cur.fetchall()
-        if info==[]:#([XJHJX],[8237482])
+
+    def check_customer(self, customer_id):
+        try:
+            self.cur.execute("SELECT * FROM costumer WHERE costumer_id=%s;", (customer_id,))
+            return bool(self.cur.fetchall())
+        except Exception as e:
+            print("Error ", e)
             return False
+
+    def add_product(self):
+        print("|ADD PRODUCT|")
+        company = input("ENTER COMPANY: ")
+        model = input("ENTER MODEL NAME: ")
+        colour = input("ENTER COLOUR: ")
+        storage = input("ENTER STORAGE(Gb): ")
+        screen_size = input("ENTER SCREEN SIZE: ")
+        price = input("ENTER PRICE: ")
+
+        if self.check_product(model, colour, storage):
+            print("YOUR PRODUCT ALREADY EXISTS")
+            self.cur.execute("SELECT quantity FROM main WHERE model=%s AND colour=%s AND storage=%s;", (model, colour, storage))
+            stock_quantity = self.cur.fetchone()[0]
+            print("NUMBER OF PRODUCTS ALREADY IN STOCK ", stock_quantity)
+            new_quantity = int(input("ENTER THE QUANTITY TO BE ADDED")) + int(stock_quantity)
+            self.cur.execute("UPDATE main SET quantity=%s WHERE model=%s AND colour=%s AND storage=%s;", (new_quantity, model, colour, storage))
+            print("Updated")
         else:
-            return True
-    except Exception as e:
-        print("Error ", e)
+            quantity = input("ENTER QUANTITY: ")
+            self.cur.execute("INSERT INTO main (company, model, colour, storage, screen_size, price, quantity) VALUES (%s, %s, %s, %s, %s, %s, %s);", 
+                             (company, model, colour, storage, screen_size, price, quantity))
+            print("Record Added")
+        self.con.commit()
 
-def add():
-    print("|ADD PRODUCT|")
-    b="'"+input("ENTER COMPANY: ")+"'"
-    c="'"+input("ENTER MODEL NAME: ")+"'"
-    n="'"+input("ENTER COLOUR: ")+"'"
-    e="'"+(input("ENTER STORAGE(Gb): "))+"'"
-    f="'"+(input("ENTER SCREEN SIZE:  "))+"'"
-    g="'"+(input("ENTER PRICE: "))+"'"
-    
-    if check(c,n,e):
-        print("YOUR PRODUCT ALREADY EXISTS PLEASE")
-        cur.execute('select quantity from main where model={} and colour={} and storage={};'.format(c,n,e))
-        info=cur.fetchall()
-        for i in info:
-            print("NUMBER OF PRODUCTS ALREADY IN STOCK ",info[0][0])
-        h="'"+str(int(input('ENTER THE QUANTITY TO BE ADDED'))+int(info[0][0]))+"'"
-        cur.execute('update main set quantity={} where model={} and colour={} and storage={};'.format(h,c,n,e))
-        con.commit()
-        print ("updated")
-    else:
-        h1="'"+(input("ENTER QUANTITY: "))+"'"
-        cur.execute('insert into main values({},{},{},{},{},{},{});'.format(b,c,n,e,f,g,h1))
-        con.commit()
-        print('Record Added\n')
-
-def remove():
-    print("|REMOVE PRODUCT|")
-    print(" Products Available: ")
-    cur.execute('select*from main')
-    info=cur.fetchall()
-    print("company\t\tModel\t\t\tColour\t\tstorage\t\tscreen size\tprice\t\tquantity")
-    for x in info:
-        print("{}\t\t{}\t\t{}\t\t{}\t\t{}\t\t{}\t\t{}".format(x[0],x[1],x[2],x[3],x[4],x[5],x[6],))
-    j="'"+input("Enter Model: ")+"'"
-    q="'"+input("Enter colour: ")+"'"
-    y="'"+input("Enter Storage")+"'"
-    if check(j,q,y):
-        cur.execute("select*from main where model={} and colour={} and storage={};".format(j,q,y))
-        j1=cur.fetchall()
-        for x in j1:
-            print(x)
-        cur.execute("select quantity from main where model={} and colour={} and storage={};".format(j,q,y))
-        j1=cur.fetchall()
-        k="'"+str((int(j1[0][0]))-int(input('ENTER QUANTITY')))+"'"
-        if k=="'0'":
-            cur.execute("delete from main where model={} and colour={} and storage={};".format(j,q,y))
-            con.commit()
-            print("updated")
+    def remove_product(self):
+        print("|REMOVE PRODUCT|")
+        model = input("Enter Model: ")
+        colour = input("Enter Colour: ")
+        storage = input("Enter Storage: ")
+        
+        if self.check_product(model, colour, storage):
+            self.cur.execute("SELECT quantity FROM main WHERE model=%s AND colour=%s AND storage=%s;", (model, colour, storage))
+            stock_quantity = int(self.cur.fetchone()[0])
+            quantity_to_remove = int(input("ENTER QUANTITY TO REMOVE: "))
+            
+            if quantity_to_remove >= stock_quantity:
+                self.cur.execute("DELETE FROM main WHERE model=%s AND colour=%s AND storage=%s;", (model, colour, storage))
+                print("Product Removed")
+            else:
+                new_quantity = stock_quantity - quantity_to_remove
+                self.cur.execute("UPDATE main SET quantity=%s WHERE model=%s AND colour=%s AND storage=%s;", (new_quantity, model, colour, storage))
+                print("Updated")
         else:
-            cur.execute('update main set quantity={} where model={} and colour={} and storage={};'.format(k,j,q,y))
-            con.commit()
-            print ("Updated\n")     
-    else:
-        print("Product not found")
+            print("Product not found")
+        self.con.commit()
 
-def stock():
-    print("|STOCK|")
-    print("Stock available is :")
-    print("company\t\tmodel\t\t\t\tColour\t\tStorage")
-    cur.execute("select*from main;")
-    info=cur.fetchall()
-    for i in info:
-        print("{}\t\t{}\t\t\t{}\t\t{}".format(i[0],i[1],i[2],i[3]))
-        
-        
-def details():
-    r="'"+input("ENTER COMPANY")+"'"
-    s="'"+input("ENTER MODEL")+"'"
-    a="'"+input("ENTER STORAGE")+"'"
-    cur.execute("select * from main where company={} and model={} and storage={};".format(r,s,a))
-    info=cur.fetchall()
-    print("product details are:")
-    print("company\t\tmodel\t\t\tcolour\t\tScreen Size\tPrice\t\tQuantity")
-    for i in info:
-        print("{}\t\t{}\t\t{}\t\t{}\t\t{}\t\t{}".format(i[0],i[1],i[2],i[4],i[5],i[6],))
-        
+    def display_stock(self):
+        print("|STOCK|")
+        self.cur.execute("SELECT * FROM main;")
+        for record in self.cur.fetchall():
+            print(record)
 
-def addcostumer():
-    costid="'"+str(uuid.uuid4())+"'"
-    print("Costumer's unique id:",costid)
-    b="'"+input("ENTER NAME: ")+"'"
-    c="'"+input("E-MAIL: ")+"'"
-    n="'"+input("ENTER MOBILE NUMBER: ")+"'"
-    e="'"+(input("ENTER ADDRESS: "))+"'"
-    cur.execute('insert into costumer values({},{},{},{},{});'.format(costid,b,c,n,e))
-    con.commit()
-    print('Record Added\n')
-    
-def removecostumer():
-    cur.execute('select*from costumer')
-    info=cur.fetchall()
-    print("Id,Name,E-Mail,Mobile Number,Address")
-    for x in info:
-        print(x)
-    j="'"+input("Enter Id: ")+"'"
-    if check2(j):
-        cur.execute("delete from costumer where costumer_id={};".format(j))
-        print("Deleted")     
-    else:
-        print("Costumer not found")
+    def product_details(self):
+        company = input("ENTER COMPANY: ")
+        model = input("ENTER MODEL: ")
+        storage = input("ENTER STORAGE: ")
+        self.cur.execute("SELECT * FROM main WHERE company=%s AND model=%s AND storage=%s;", (company, model, storage))
+        for record in self.cur.fetchall():
+            print(record)
 
-def updatecostumer():
-    cur.execute('select*from costumer')
-    info=cur.fetchall()
-    for x in info:
-        print(x)
-    p="'"+input("Enter costumer's id:")+"'"
-    print("select the information you want to upadate:")
-    option=int(input("\n1.NAME: \n2.E-MAIL: \n3.MOBILE NUMBER: \n4.ADDRESS: \n"))
-    while option!=0:
-        if option==1:
-            cur.execute("select name from costumer where costumer_id={};".format(p))
-            info=cur.fetchall()
-            for i in info:
-                print("old name =")
-                print(i[0])
-            x="'"+input('Enter new name')+"'"
-            cur.execute("update costumer set name={} where costumer_id={};".format(x,p))
-            con.commit()
-            print("updated")
-        elif option==2:
-            cur.execute("select E_Mail from costumer where costumer_id={};".format(p))
-            info=cur.fetchall()
-            for i in info:
-                print("old e-mail id")
-                print(i[0])
-            y="'"+input("enter new e-mail id: ")+"'"
-            cur.execute("update costumer set E_Mail={} where costumer_id={};".format(y,p))
-            con.commit()
-            print("updated")
-        elif option==3:
-            cur.execute("select mobile from costumer where costumer_id={};".format(p))
-            info=cur.fetchall()
-            for i in info:
-                print("old mobile Number: ")
-                print(i[0])
-            y="'"+input("enter new mobile number: ")+"'"
-            cur.execute("update costumer set mobile={} where costumer_id={};".format(y,p))
-            con.commit()
-            print("updated")
-        elif option==4:
-            cur.execute("select address from costumer where costumer_id={};".format(p))
-            info=cur.fetchall()
-            for i in info:
-                print("old Address: ")
-                print(i[0])
-            y="'"+input("enter new address: ")+"'"
-            cur.execute("update costumer set address={} where costumer_id={};".format(y,p))
-            con.commit()
-            print("updated")
-        elif option==5:
-            break
+    def add_customer(self):
+        customer_id = str(uuid.uuid4())
+        print("Customer's unique ID:", customer_id)
+        name = input("ENTER NAME: ")
+        email = input("E-MAIL: ")
+        mobile = input("ENTER MOBILE NUMBER: ")
+        address = input("ENTER ADDRESS: ")
+        self.cur.execute("INSERT INTO costumer (costumer_id, name, E_Mail, mobile, address) VALUES (%s, %s, %s, %s, %s);", 
+                         (customer_id, name, email, mobile, address))
+        print("Customer Record Added")
+        self.con.commit()
+
+    def remove_customer(self):
+        customer_id = input("Enter Customer ID: ")
+        if self.check_customer(customer_id):
+            self.cur.execute("DELETE FROM costumer WHERE costumer_id=%s;", (customer_id,))
+            print("Customer Deleted")
         else:
-            print("something went wrong")
-            break
-        option=int(input("\n1.NAME: \n2.E-MAIL: \n3.MOBILE NUMBER: \n4.ADDRESS: \n5.exit\n"))
-def costumerdatabase():
-    cur.execute("select * from costumer")
-    info=cur.fetchall()
-    for i in info:
-        print(i)
-        
-def costumerdetails():
-    x="'"+input("Enter id")+"'"
-    cur.execute("select * from costumer where costumer_id={};".format(x))
-    info=cur.fetchall()
-    for i in info:
-        print(i)
+            print("Customer not found")
+        self.con.commit()
 
-def costumer():
-    print("COSTUMER CORNER:")
-    a=int(input("what do you want to do:\n1. Add costumer \n2. Remove costumer \n3 Update Costumer \n4. costumer database \n5. costumer Details \n6.exit\n"))
-    while a!=0:
-        if a==1:
-            addcostumer()
-        elif a==2:
-            removecostumer()
-        elif a==3:
-            updatecostumer()
-        elif a==4:
-            costumerdatabase()
-        elif a==5:
-            costumerdetails()
-        elif a==6:
-            break
-        else:
-            print("something went wrong")        
-        a=int(input("what do you want to do:\n1. Add costumer \n2. Remove costumer \n3 Update Costumer \n4. costumer database \n5. costumer Details \n6.exit\n"))
+    def update_customer(self):
+        customer_id = input("Enter Customer ID: ")
+        if not self.check_customer(customer_id):
+            print("Customer not found")
+            return
+
+        print("Select the information to update:")
+        options = {
+            1: ("name", "Enter new name: "),
+            2: ("E_Mail", "Enter new email: "),
+            3: ("mobile", "Enter new mobile number: "),
+            4: ("address", "Enter new address: ")
+        }
+        while True:
+            for key, value in options.items():
+                print(f"{key}. {value[0].capitalize()}")
+            choice = int(input("Select an option or 5 to exit: "))
+            if choice == 5:
+                break
+            elif choice in options:
+                new_value = input(options[choice][1])
+                self.cur.execute(f"UPDATE costumer SET {options[choice][0]}=%s WHERE costumer_id=%s;", (new_value, customer_id))
+                print("Customer information updated")
+            else:
+                print("Invalid option")
+        self.con.commit()
+
+    def display_customer_database(self):
+        self.cur.execute("SELECT * FROM costumer;")
+        for record in self.cur.fetchall():
+            print(record)
+
+    def customer_details(self):
+        customer_id = input("Enter Customer ID: ")
+        self.cur.execute("SELECT * FROM costumer WHERE costumer_id=%s;", (customer_id,))
+        for record in self.cur.fetchall():
+            print(record)
+
+    def close_connection(self):
+        self.cur.close()
+        self.con.close()
+        print("Connection closed")
         
-a=int(input("what do you want to do:\n1. Add product \n2. Remove Product \n3. Mobile Stock \n4. Product Details \n5.Costumer Section\n6. Exit \n"))
-while a!=0:
-    if a==1:
-        add()
-    elif a==2:
-        remove()
-    elif a==3:
-        stock()
-    elif a==4:
-        details()
-    elif a==5:
-        costumer()
-    elif a==6:
-        break
-    else:
-        print("something went wrong")
-        break
-    a=int(input("what do you want to do:\n1. Add product \n2. Remove Product \n3. Mobile Stock \n4. Product Details \n5.Costumer Section\n6. Exit \n"))
+# Usage Example
+# Call appropriate methods to perform actions, e.g.:
+# db_manager.add_product()
+# db_manager.remove_product()
+# db_manager.display_stock()
+# db_manager.close_connection()
