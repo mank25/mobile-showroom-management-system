@@ -1,5 +1,7 @@
 # Product and Customer Management System
 
+**Demo at - https://youtu.be/3qYwhNSWVCM**
+
 ## Project Overview
 
 This project is a **Product and Customer Management System** built using Python and MySQL. It enables users to manage product inventory and customer records within a MySQL database. Using **Object-Oriented Programming (OOP)**, the project organizes database interactions into a class, making the code modular, reusable, and easy to maintain.
